@@ -12,43 +12,64 @@
 #include "Arduino.h"
 
 class StreamDebugger
-    : public Stream {
-public:
-  StreamDebugger(Stream& data, Stream& dump)
-      : _data(data), _dump(dump) {}
+  : public Stream {
+  public:
+    StreamDebugger(Stream& data, Stream& dum, boolean hex = false)
+      : _data(data), _dump(dum), hexMode(hex) {}
 
-  virtual ~StreamDebugger() {}
+    virtual ~StreamDebugger() {}
 
-  virtual size_t write(uint8_t ch) {
-    _dump.write(ch);
-    return _data.write(ch);
-  }
-  virtual int read() {
-    int ch = _data.read();
-    if (ch != -1) {
-      _dump.write(ch);
-    }
-    return ch;
-  }
-  virtual int available() { return _data.available(); }
-  virtual int peek() { return _data.peek(); }
-  virtual void flush() { _data.flush(); }
-
-  void directAccess() {
-    while (true) {
-      if (_data.available()) {
-        _dump.write(_data.read());
+    virtual size_t write(uint8_t ch) {
+      if (hexMode) {
+        _dump.printf("<< %02X\n", ch);
+      } else {
+        _dump.write(ch);
       }
-      if (_dump.available()) {
-        _data.write(_dump.read());
-      }
-      delay(0);
+      return _data.write(ch);
     }
-  }
+    virtual int read() {
+      int ch = _data.read();
+      if (ch != -1) {
+        if (hexMode) {
+          _dump.printf(">> %02X\n", ch);
+        }
+        else {
+          _dump.write(ch);
+        }
+      }
+      return ch;
+    }
+    virtual int available() {
+      return _data.available();
+    }
+    virtual int peek() {
+      return _data.peek();
+    }
+    virtual void flush() {
+      _data.flush();
+    }
 
-private:
-  Stream& _data;
-  Stream& _dump;
+    void directAccess() {
+      while (true) {
+        if (_data.available()) {
+          if (hexMode) {
+            _dump.printf(">> %02X\n", _data.read());
+          }
+          else {
+            _dump.write(_data.read());
+          }
+        }
+        if (_dump.available()) {
+          _data.write(_dump.read());
+        }
+        delay(0);
+      }
+    }
+
+  private:
+    Stream& _data;
+    Stream& _dump;
+    boolean hexMode = false;
 };
 
 #endif
